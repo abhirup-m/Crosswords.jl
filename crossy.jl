@@ -1,9 +1,12 @@
+using Distributed
+@everywhere using JSON, Random, ProgressMeter
+
 using JSON, Random, ProgressMeter
 
 # ----------------------
 # Load crossword data
 # ----------------------
-"""
+#=
     loadData(dataFile::String)
 
 Loads crossword puzzle data from a JSON file.  
@@ -14,8 +17,8 @@ The JSON file is expected to contain:
 
 Returns:
   (size, intersections, hints::Dict{String,String})
-"""
-function loadData(dataFile::String)
+=#
+@everywhere function loadData(dataFile::String)
     words_data = JSON.parsefile(dataFile)
     hints = Dict(strip(k) => strip(v) for (k,v) in words_data["hints"])
     return words_data["size"], words_data["intersections"], hints
@@ -26,7 +29,7 @@ end
 # Utility functions
 # ----------------------
 
-"""
+#=
     getSequence(head::Tuple{Int,Int}, direction::Int, word::String)
 
 Given the starting coordinate `head`, the orientation `direction`,  
@@ -36,8 +39,8 @@ and a word, returns the list of grid coordinates where the word would fit.
 - direction = 1 → vertical placement.
 
 Coordinates are 0-indexed tuples `(row, col)`.
-"""
-function getSequence(head::Tuple{Int,Int}, direction::Int, word::String)
+=#
+@everywhere function getSequence(head::Tuple{Int,Int}, direction::Int, word::String)
     if direction == 0
         return [(head[1] + i, head[2]) for i in 0:(length(word)-1)]  # horizontal
     else
@@ -46,7 +49,7 @@ function getSequence(head::Tuple{Int,Int}, direction::Int, word::String)
 end
 
 
-"""
+#=
     isAcceptable(word, sequence, direction, crossword, cell_direction, size, connections)
 
 Checks whether a given `word` can legally be placed at the grid positions
@@ -57,8 +60,8 @@ Validates:
   - No illegal adjacency (extra touching of words not via intersections).
   - Matches existing characters if overlapping.
   - Consistent with cell directions already assigned.
-"""
-function isAcceptable(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
+=#
+@everywhere function isAcceptable(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
                       crossword::Dict{Tuple{Int,Int},Char},
                       cell_direction::Dict{Tuple{Int,Int},String},
                       size::Int, connections::Dict{Tuple{Int,Int},Vector{Tuple{Int,Int}}})
@@ -107,7 +110,7 @@ function isAcceptable(word::String, sequence::Vector{Tuple{Int,Int}}, direction:
 end
 
 
-"""
+#=
     intersectingHead(word, direction, cell_direction, crossword)
 
 Finds all possible starting positions (`heads`) for placing `word`
@@ -115,8 +118,8 @@ in a given direction, by looking for intersecting letters in the current grid.
 
 - If the grid is empty, returns (0,0) as a trivial start.
 - Otherwise, returns all valid heads that align with existing matching letters.
-"""
-function intersectingHead(word::String, direction::Int,
+=#
+@everywhere function intersectingHead(word::String, direction::Int,
                           cell_direction::Dict{Tuple{Int,Int},String},
                           crossword::Dict{Tuple{Int,Int},Char})
     if all(v -> v == '#', values(crossword))
@@ -148,15 +151,15 @@ function intersectingHead(word::String, direction::Int,
 end
 
 
-"""
+#=
     addToGrid(word, sequence, direction, grid, cell_direction, connections)
 
 Writes `word` into the crossword `grid` at the given `sequence` of coordinates.
 Also updates:
   - `cell_direction` to track directions each cell is used in,
   - `connections` to track which letters belong to which word.
-"""
-function addToGrid(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
+=#
+@everywhere function addToGrid(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
                    grid::Dict{Tuple{Int,Int},Char},
                    cell_direction::Dict{Tuple{Int,Int},String},
                    connections::Dict{Tuple{Int,Int},Vector{Tuple{Int,Int}}})
@@ -172,15 +175,15 @@ function addToGrid(word::String, sequence::Vector{Tuple{Int,Int}}, direction::In
 end
 
 
-"""
+#=
     removeFromGrid(word, sequence, direction, grid, cell_direction, connections)
 
 Undo the placement of a `word`:
   - Restores `grid` to '#' where needed,
   - Removes last direction from `cell_direction`,
   - Pops connections to other letters.
-"""
-function removeFromGrid(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
+=#
+@everywhere function removeFromGrid(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
                         grid::Dict{Tuple{Int,Int},Char},
                         cell_direction::Dict{Tuple{Int,Int},String},
                         connections::Dict{Tuple{Int,Int},Vector{Tuple{Int,Int}}})
@@ -201,7 +204,7 @@ end
 # ----------------------
 # Recursive placement
 # ----------------------
-"""
+#=
     createGrid(...)
 
 Recursive backtracking algorithm:
@@ -212,8 +215,8 @@ Recursive backtracking algorithm:
 
 Returns:
   (grid, cell_direction, accept::Bool, classification, depth)
-"""
-function createGrid(grid, words_list, size, direction, cell_direction, classification,
+=#
+@everywhere function createGrid(grid, words_list, size, direction, cell_direction, classification,
                     depth, connections, MAX_DEPTH)
     for word in words_list
         allowedHeads = all(v -> v == '#', values(grid)) ?
@@ -253,7 +256,7 @@ end
 # ----------------------
 # Main crossword runner
 # ----------------------
-"""
+#=
     runCrossword(dataFile; MAX_ITER=100, MAX_DEPTH=100000)
 
 Driver function:
@@ -267,7 +270,7 @@ On success:
   - Returns classification of words into Across/Down.
 On failure:
   - Throws error after exhausting iterations.
-"""
+=#
 function runCrossword(dataFile::String; MAX_ITER::Int=100, MAX_DEPTH::Int=100000)
     size, reqIntersections, words_data = loadData(dataFile)
     sorted_words = sort(String.(collect(keys(words_data))), by=length, rev=true)
