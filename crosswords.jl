@@ -1,7 +1,8 @@
 #!/bin/env julia
 
-using Distributed, TOML, Random, ProgressMeter
-include("gridOperations.jl")
+using Distributed
+@everywhere using TOML, Random, ProgressMeter
+@everywhere include("gridOperations.jl")
 
 # ----------------------
 # Main crossword runner
@@ -38,7 +39,10 @@ function generateCrossword(dataFile::String)
     prettyOutput = nothing
     intersections = 0
 
-    @showprogress for _ in 1:MAX_ITER
+    @sync @showprogress @distributed for _ in 1:MAX_ITER
+        # Randomize order for next attempt
+        sorted_words = shuffle(sorted_words)
+
         # Initialize empty grid and metadata
         grid = Dict((i,j) => '#' for i in 0:(gridSize - 1), j in 0:(gridSize - 1))
         cell_direction = Dict((i,j) => "" for i in 0:(gridSize - 1), j in 0:(gridSize - 1))
@@ -78,9 +82,6 @@ function generateCrossword(dataFile::String)
             
             break
         end
-
-        # Randomize order for next attempt
-        sorted_words = shuffle(sorted_words)
     end
 
     if isnothing(prettyOutput)
