@@ -317,3 +317,12 @@ function runCrossword(dataFile::String)
         @info "Crossword \n\n" * prettyOutput * "\n\nIntersections: $(intersections)"
     end
 end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    if isempty(ARGS)
+        @assert isfile("requirements.toml") "No requirements.toml file found. Please provide another filename in the directory."
+        runCrossword("requirements.toml")
+    else
+        runCrossword(ARGS[1])
+    end
+end
