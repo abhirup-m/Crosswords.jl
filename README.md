@@ -23,6 +23,20 @@ julia> include("crosswords.jl")
 julia> generateCrossword("requirements.toml")
 ```
 
+The algorithm makes use of parallelisation if multiple processes are provided:
+```sh
+##### if running directly #####
+$ julia -p 10 crosswords.jl requirements.toml
+
+##### if running from the REPL  #####
+$ julia
+julia> using Distributed
+julia> addprocs(10)
+julia> include("crosswords.jl")
+julia> generateCrossword("requirements.toml")
+```
+
+
 ## Input file structure
 The `requirements.toml` file passed as input to the script has the following structure:
 ```toml
