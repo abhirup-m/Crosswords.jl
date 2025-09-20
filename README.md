@@ -4,11 +4,23 @@
 
 ## Usage
 
+The files must first be downloaded:
 ```sh
 $ git pull https://github.com/abhirup-m/Crossy.jl.git
 $ cd Crossy.jl
 $ chmod +x crossy.jl
+```
+
+The crossy.jl can be executed directly, passing a requirements file as the argument:
+```sh
 $ ./crossy.jl words.json
+```
+
+The other option is to go into a Julia REPL, include the file and run the appropriate module:
+```sh
+$ julia
+julia> include("crossy.jl")
+julia> runCrossword("requirements.toml")
 ```
 
 ## Input file structure
