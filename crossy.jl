@@ -292,6 +292,19 @@ function runCrossword(dataFile::String; MAX_ITER::Int=100, MAX_DEPTH::Int=100000
             for i in 0:size-1
                 println(join([grid[(i,j)] for j in 0:size-1], " "))
             end
+            # Build JSON-style hints dict
+            hints = Dict(
+                "down" => Dict(word => [loc, words_data[word]] for (loc, word) in classification[0]),
+                "across" => Dict(word => [loc, words_data[word]] for (loc, word) in classification[1]),
+                "blanks" => [j * size + i for i in 0:size-1, j in 0:size-1 if grid[(j, i)] == '#'],
+                "size" => size
+            )
+
+            # Write to file
+            open("grid.json", "w") do io
+                JSON.print(io, hints, 4)   # pretty print with 4-space indent
+            end
+
             return classification
         end
 
