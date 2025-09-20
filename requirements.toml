@@ -1,0 +1,16 @@
+size = 14
+intersections = 12
+iterations = 500
+depth = 1000000
+
+[hints]
+MALARIA = "Infectious, misfolded protein that causes healthy proteins to misfold, leading to fatal neurodegenerative diseases"
+MICROGLIA = "Brain’s resident immune cells that protect neurons but can drive chronic inflammation in disease."
+INTEGRINS = "Cell surface receptors that anchor cells to the extracellular matrix and relay mechanical signals inside."
+INFLAMMATION = "A bodily response to infection or injury, often causing redness and swelling."
+ALLOSTASIS = "The process of achieving stability through physiological or behavioral changes in response to stress."
+ASTROCYTES = "Star-shaped support cells in the brain that nourish neurons, maintain homeostasis, and turn harmful when reactive in disease."
+HYPOXIA = "Low oxygen zones inside tumors that trigger survival, angiogenesis, and therapy resistance."
+PARKINSON = "A neurodegenerative disorder marked by tremors and dopamine depletion."
+ANGIOGENESIS = "Formation of new blood vessels that feed tumors and support their growth and spread."
+VIRULENCE = "The degree of pathogenicity or ability of a microbe to cause disease."

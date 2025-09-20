@@ -1,7 +1,7 @@
 #!/bin/env julia
 
 using Distributed
-using JSON3, Random, ProgressMeter
+using TOML, Random, ProgressMeter
 
 # ----------------------
 # Utility functions
@@ -256,7 +256,7 @@ function runCrossword(dataFile::String)
     #=  - "size": size of the crossword grid (NxN),=#
     #=  - "intersections": required minimum number of intersecting cells,=#
     #=  - "hints": dictionary mapping words to their hints.=#
-    data = JSON3.read(dataFile, Dict{String, Any})
+    data = TOML.parsefile(dataFile)
     hints = Dict(strip(k) => strip(v) for (k,v) in data["hints"])
     gridSize = data["size"]
     reqIntersections = data["intersections"]
@@ -296,8 +296,8 @@ function runCrossword(dataFile::String)
             )
 
             # Write to file
-            open("grid.json", "w") do io
-                JSON3.write(io, hints)
+            open("grid_details.toml", "w") do io
+                TOML.print(io, hints)
             end
 
             # Print crossword
