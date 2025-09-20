@@ -32,6 +32,13 @@ ANGIOGENESIS = "Formation of new blood vessels that feed tumors and support thei
 VIRULENCE = "The degree of pathogenicity or ability of a microbe to cause disease."
 ```
 
+The file **must** contain the following details:
+- `size` [INT]: The number of rows (and columns) of the grid. Only square grids are allowed for now.
+- `intersections` [INT]: The number of points of intersection required between words on the eventual crossword.
+- `iterations` [INT]: A part of the algorithm involves starting with various random sequences of the provided words in order to maximise the number of intersections. This variable sets the maximum number of such rearrangements to investigate during the search for the best crossword.
+- `depth` [INT]: For each random sequence, the algorithm investigates various placements of the words on the grid. This variable sets the maximum number of placements to investigate for any given sequence.
+- `hints` [DICTIONARY]: Set of key-value pairs; each key is a word that must be placed on the crossword, the values are the corresponding hints. The hints do not affect the crossword generation, but are used to create the final output file so that it is complete.
+
 ## Example output
 
 Running the script on a file with easy enough requirements leads to the following typical output:
