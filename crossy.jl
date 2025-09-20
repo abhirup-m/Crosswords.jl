@@ -1,29 +1,7 @@
+#!/bin/env julia
+
 using Distributed
-@everywhere using JSON, Random, ProgressMeter
-
-using JSON, Random, ProgressMeter
-
-# ----------------------
-# Load crossword data
-# ----------------------
-#=
-    loadData(dataFile::String)
-
-Loads crossword puzzle data from a JSON file.  
-The JSON file is expected to contain:
-  - "size": size of the crossword grid (NxN),
-  - "intersections": required minimum number of intersecting cells,
-  - "hints": dictionary mapping words to their hints.
-
-Returns:
-  (size, intersections, hints::Dict{String,String})
-=#
-@everywhere function loadData(dataFile::String)
-    words_data = JSON.parsefile(dataFile)
-    hints = Dict(strip(k) => strip(v) for (k,v) in words_data["hints"])
-    return words_data["size"], words_data["intersections"], hints
-end
-
+using JSON3, Random, ProgressMeter
 
 # ----------------------
 # Utility functions
@@ -40,7 +18,7 @@ and a word, returns the list of grid coordinates where the word would fit.
 
 Coordinates are 0-indexed tuples `(row, col)`.
 =#
-@everywhere function getSequence(head::Tuple{Int,Int}, direction::Int, word::String)
+function getSequence(head::Tuple{Int,Int}, direction::Int, word::String)
     if direction == 0
         return [(head[1] + i, head[2]) for i in 0:(length(word)-1)]  # horizontal
     else
@@ -61,13 +39,13 @@ Validates:
   - Matches existing characters if overlapping.
   - Consistent with cell directions already assigned.
 =#
-@everywhere function isAcceptable(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
+function isAcceptable(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
                       crossword::Dict{Tuple{Int,Int},Char},
                       cell_direction::Dict{Tuple{Int,Int},String},
-                      size::Int, connections::Dict{Tuple{Int,Int},Vector{Tuple{Int,Int}}})
+                      gridSize::Int, connections::Dict{Tuple{Int,Int},Vector{Tuple{Int,Int}}})
 
     # 1. Boundary check
-    if sequence[end][1] ≥ size || sequence[end][2] ≥ size ||
+    if sequence[end][1] ≥ gridSize || sequence[end][2] ≥ gridSize ||
        sequence[1][1] < 0 || sequence[1][2] < 0
         return false
     end
@@ -76,7 +54,7 @@ Validates:
     for shift in (0, -1)
         adjacent = collect(sequence[shift == 0 ? 1 : end])  # pick start or end
         adjacent[direction+1] -= Int(2 * (shift + 0.5))
-        if 0 ≤ adjacent[direction+1] < size &&
+        if 0 ≤ adjacent[direction+1] < gridSize &&
            crossword[(adjacent[1], adjacent[2])] != '#'
             return false
         end
@@ -92,7 +70,7 @@ Validates:
             else
                 (loc[1] + shift, loc[2])
             end
-            if 0 ≤ adjacent[1] < size && 0 ≤ adjacent[2] < size &&
+            if 0 ≤ adjacent[1] < gridSize && 0 ≤ adjacent[2] < gridSize &&
                crossword[adjacent] != '#' &&
                !(loc in connections[adjacent])
                 return false
@@ -119,7 +97,7 @@ in a given direction, by looking for intersecting letters in the current grid.
 - If the grid is empty, returns (0,0) as a trivial start.
 - Otherwise, returns all valid heads that align with existing matching letters.
 =#
-@everywhere function intersectingHead(word::String, direction::Int,
+function intersectingHead(word::String, direction::Int,
                           cell_direction::Dict{Tuple{Int,Int},String},
                           crossword::Dict{Tuple{Int,Int},Char})
     if all(v -> v == '#', values(crossword))
@@ -159,7 +137,7 @@ Also updates:
   - `cell_direction` to track directions each cell is used in,
   - `connections` to track which letters belong to which word.
 =#
-@everywhere function addToGrid(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
+function addToGrid(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
                    grid::Dict{Tuple{Int,Int},Char},
                    cell_direction::Dict{Tuple{Int,Int},String},
                    connections::Dict{Tuple{Int,Int},Vector{Tuple{Int,Int}}})
@@ -183,7 +161,7 @@ Undo the placement of a `word`:
   - Removes last direction from `cell_direction`,
   - Pops connections to other letters.
 =#
-@everywhere function removeFromGrid(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
+function removeFromGrid(word::String, sequence::Vector{Tuple{Int,Int}}, direction::Int,
                         grid::Dict{Tuple{Int,Int},Char},
                         cell_direction::Dict{Tuple{Int,Int},String},
                         connections::Dict{Tuple{Int,Int},Vector{Tuple{Int,Int}}})
@@ -216,11 +194,11 @@ Recursive backtracking algorithm:
 Returns:
   (grid, cell_direction, accept::Bool, classification, depth)
 =#
-@everywhere function createGrid(grid, words_list, size, direction, cell_direction, classification,
+function createGrid(grid, words_list, gridSize, direction, cell_direction, classification,
                     depth, connections, MAX_DEPTH)
     for word in words_list
         allowedHeads = all(v -> v == '#', values(grid)) ?
-                        [(i,j) for i in 0:size-1, j in 0:size-1] :
+                        [(i,j) for i in 0:(gridSize - 1), j in 0:(gridSize - 1)] :
                         intersectingHead(word, direction, cell_direction, grid)
 
         for head in allowedHeads
@@ -230,18 +208,18 @@ Returns:
             end
 
             sequence = getSequence(head, direction, word)
-            if isAcceptable(word, sequence, direction, grid, cell_direction, size, connections)
+            if isAcceptable(word, sequence, direction, grid, cell_direction, gridSize, connections)
                 addToGrid(word, sequence, direction, grid, cell_direction, connections)
                 accept = false
                 if length(words_list) > 1
                     grid, cell_direction, accept, classification, depth =
-                        createGrid(grid, filter(!=(word), words_list), size, 1-direction,
+                        createGrid(grid, filter(!=(word), words_list), gridSize, 1-direction,
                                    cell_direction, classification, depth, connections, MAX_DEPTH)
                 else
                     accept = true
                 end
                 if accept
-                    push!(classification[direction], (size * sequence[1][1] + sequence[1][2], word))
+                    push!(classification[direction], (gridSize * sequence[1][1] + sequence[1][2], word))
                     return grid, cell_direction, true, classification, depth
                 else
                     removeFromGrid(word, sequence, direction, grid, cell_direction, connections)
@@ -271,46 +249,71 @@ On success:
 On failure:
   - Throws error after exhausting iterations.
 =#
-function runCrossword(dataFile::String; MAX_ITER::Int=100, MAX_DEPTH::Int=100000)
-    size, reqIntersections, words_data = loadData(dataFile)
-    sorted_words = sort(String.(collect(keys(words_data))), by=length, rev=true)
+function runCrossword(dataFile::String)
+
+    #=Loads crossword puzzle data from a JSON file.  =#
+    #=The JSON file is expected to contain:=#
+    #=  - "size": size of the crossword grid (NxN),=#
+    #=  - "intersections": required minimum number of intersecting cells,=#
+    #=  - "hints": dictionary mapping words to their hints.=#
+    data = JSON3.read(dataFile, Dict{String, Any})
+    hints = Dict(strip(k) => strip(v) for (k,v) in data["hints"])
+    gridSize = data["size"]
+    reqIntersections = data["intersections"]
+    MAX_ITER = data["iterations"]
+    MAX_DEPTH = data["depth"]
+    sorted_words = sort(String.(collect(keys(hints))), by=length, rev=true)
+    prettyOutput = nothing
+    intersections = 0
 
     @showprogress for _ in 1:MAX_ITER
         # Initialize empty grid and metadata
-        grid = Dict((i,j) => '#' for i in 0:size-1, j in 0:size-1)
-        cell_direction = Dict((i,j) => "" for i in 0:size-1, j in 0:size-1)
-        connections = Dict((i,j) => [(i,j)] for i in 0:size-1, j in 0:size-1)
+        grid = Dict((i,j) => '#' for i in 0:(gridSize - 1), j in 0:(gridSize - 1))
+        cell_direction = Dict((i,j) => "" for i in 0:(gridSize - 1), j in 0:(gridSize - 1))
+        connections = Dict((i,j) => [(i,j)] for i in 0:(gridSize - 1), j in 0:(gridSize - 1))
         classification = Dict(0 => Tuple{Int,String}[], 1 => Tuple{Int,String}[])
 
         # Try to build crossword
-        grid, cell_direction, accept, classification, depth =
-            createGrid(grid, sorted_words, size, 0, cell_direction, classification, 0, connections, MAX_DEPTH)
+        grid, cell_direction, accept, classification, _ =
+            createGrid(grid, sorted_words, gridSize, 0, cell_direction, classification, 0, connections, MAX_DEPTH)
 
         # Check if valid
         if accept && count(v -> length(v) > 1, values(cell_direction)) ≥ reqIntersections
-            # Print crossword
-            for i in 0:size-1
-                println(join([grid[(i,j)] for j in 0:size-1], " "))
-            end
             # Build JSON-style hints dict
+            blanks = []
+            for i in 0:(gridSize - 1)
+                for j in 0:(gridSize - 1)
+                    if grid[(j, i)] == '#'
+                        push!(blanks, j * gridSize + i)
+                    end
+                end
+            end
             hints = Dict(
-                "down" => Dict(word => [loc, words_data[word]] for (loc, word) in classification[0]),
-                "across" => Dict(word => [loc, words_data[word]] for (loc, word) in classification[1]),
-                "blanks" => [j * size + i for i in 0:size-1, j in 0:size-1 if grid[(j, i)] == '#'],
-                "size" => size
+                "down" => Dict(word => [loc, hints[word]] for (loc, word) in classification[0]),
+                "across" => Dict(word => [loc, hints[word]] for (loc, word) in classification[1]),
+                "blanks" => blanks,
+                "size" => gridSize
             )
 
             # Write to file
             open("grid.json", "w") do io
-                JSON.print(io, hints, 4)   # pretty print with 4-space indent
+                JSON3.write(io, hints)
             end
 
-            return classification
+            # Print crossword
+            prettyOutput = join([join([grid[(i,j)] for j in 0:(gridSize - 1)], " ") for i in 0:(gridSize - 1)], "\n")
+            intersections = count(v -> length(v) > 1, values(cell_direction))
+            
+            break
         end
 
         # Randomize order for next attempt
         sorted_words = shuffle(sorted_words)
     end
 
-    error("No valid crossword found after $MAX_ITER attempts")
+    if isnothing(prettyOutput)
+        @info "No valid crossword found after $MAX_ITER attempts with a depth of $MAX_DEPTH. No output generated.\n Consider increasing \"max_iter\" (number of shufflings of words to consider) or \"max_depth\" (number of positionings of a single shuffling).\n If it still doesn't work, you'll have to increase the grid size and/or lower the number of intersections."
+    else
+        @info "Crossword \n\n" * prettyOutput * "\n\nIntersections: $(intersections)"
+    end
 end

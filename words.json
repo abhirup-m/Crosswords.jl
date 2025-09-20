@@ -1,6 +1,8 @@
 {
 	"size": 14,
 	"intersections": 12,
+	"iterations": 500,
+	"depth": 1000000,
 	"hints": {
 		"MALARIA": "Infectious, misfolded protein that causes healthy proteins to misfold, leading to fatal neurodegenerative diseases",
 		"MICROGLIA": "Brain’s resident immune cells that protect neurons but can drive chronic inflammation in disease.",
