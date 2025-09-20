@@ -249,7 +249,7 @@ On success:
 On failure:
   - Throws error after exhausting iterations.
 =#
-function runCrossword(dataFile::String)
+function generateCrossword(dataFile::String)
 
     #=Loads crossword puzzle data from a JSON file.  =#
     #=The JSON file is expected to contain:=#
@@ -321,8 +321,8 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     if isempty(ARGS)
         @assert isfile("requirements.toml") "No requirements.toml file found. Please provide another filename in the directory."
-        runCrossword("requirements.toml")
+        generateCrossword("requirements.toml")
     else
-        runCrossword(ARGS[1])
+        generateCrossword(ARGS[1])
     end
 end

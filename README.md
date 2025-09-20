@@ -1,26 +1,26 @@
-# Crossy.jl
+# Crosswords.jl
 
-**Crossy.jl** is a crossword generator written in Julia. The input is a TOML file (`requirements.toml` in the repository) which contains the list of words to be put on the crossword and some other requirements for the crossword (size etc). The script tries to obtain a compatible arrangement of words on a grid that satisfies all requirements. If such an arrangement is found, it spits out another TOML file (`grid_details.toml`) with sufficient details to reconstruct the grid using a suitable parser.
+**Crosswords.jl** is a crossword generator written in Julia. The input is a TOML file (`requirements.toml` in the repository) which contains the list of words to be put on the crossword and some other requirements for the crossword (size etc). The script tries to obtain a compatible arrangement of words on a grid that satisfies all requirements. If such an arrangement is found, it spits out another TOML file (`grid_details.toml`) with sufficient details to reconstruct the grid using a suitable parser.
 
 ## Usage
 
 The files must first be downloaded:
 ```sh
-$ git pull https://github.com/abhirup-m/Crossy.jl.git
-$ cd Crossy.jl
-$ chmod +x crossy.jl
+$ git pull https://github.com/abhirup-m/Crosswords.jl.git
+$ cd Crosswords.jl
+$ chmod +x crosswords.jl
 ```
 
-The crossy.jl can be executed directly, passing a requirements file as the argument:
+The crosswords.jl can be executed directly, passing a requirements file as the argument:
 ```sh
-$ ./crossy.jl words.json
+$ ./crosswords.jl requirements.toml
 ```
 
 The other option is to go into a Julia REPL, include the file and run the appropriate module:
 ```sh
 $ julia
-julia> include("crossy.jl")
-julia> runCrossword("requirements.toml")
+julia> include("crosswords.jl")
+julia> generateCrossword("requirements.toml")
 ```
 
 ## Input file structure
