@@ -1,7 +1,7 @@
 size = 14
 intersections = 12
 iterations = 1000
-depth = 100000
+depth = 10000
 
 [hints]
 MALARIA = "Infectious, misfolded protein that causes healthy proteins to misfold, leading to fatal neurodegenerative diseases"

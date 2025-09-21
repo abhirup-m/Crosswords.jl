@@ -83,7 +83,7 @@ function generateCrossword(dataFile::String)
             # Print crossword
             prettyOutput = join([join([grid[(i,j)] for j in 0:(gridSize - 1)], " ") for i in 0:(gridSize - 1)], "\n")
             intersections = count(v -> length(v) > 1, values(cell_direction))
-            
+
             break
         end
     end
