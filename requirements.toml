@@ -1,6 +1,6 @@
 size = 14
-intersections = 13
-iterations = 500
+intersections = 12
+iterations = 1000
 depth = 100000
 
 [hints]

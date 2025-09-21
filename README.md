@@ -3,36 +3,23 @@
 **Crosswords.jl** is a crossword generator written in Julia. The input is a TOML file (`requirements.toml` in the repository) which contains the list of words to be put on the crossword and some other requirements for the crossword (size etc). The script tries to obtain a compatible arrangement of words on a grid that satisfies all requirements. If such an arrangement is found, it spits out another TOML file (`grid_details.toml`) with sufficient details to reconstruct the grid using a suitable parser.
 
 ## Usage
-
-The files must first be downloaded:
-```sh
-$ git pull https://github.com/abhirup-m/Crosswords.jl.git
-$ cd Crosswords.jl
-$ chmod +x crosswords.jl
+The system must have `Julia` installed (see the [official website](https://julialang.org/install/)). The script can then be installed as a package:
+```julia
+julia> ]
+pkg> add https://github.com/abhirup-m/Crosswords.jl.git
 ```
 
-The crosswords.jl can be executed directly, passing a requirements file as the argument:
-```sh
-$ ./crosswords.jl requirements.toml
-```
-
-The other option is to go into a Julia REPL, include the file and run the appropriate module:
-```sh
-$ julia
-julia> include("crosswords.jl")
+After installation completes (takes a few seconds), the main function can be used:
+```julia
+julia> using Crosswords
 julia> generateCrossword("requirements.toml")
 ```
 
 The algorithm makes use of parallelisation if multiple processes are provided:
-```sh
-##### if running directly #####
-$ julia -p 10 crosswords.jl requirements.toml
-
-##### if running from the REPL  #####
-$ julia
+```julia
 julia> using Distributed
 julia> addprocs(10)
-julia> include("crosswords.jl")
+julia> @everywhere using Crosswords
 julia> generateCrossword("requirements.toml")
 ```
 
