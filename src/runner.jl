@@ -1,9 +1,5 @@
 #!/bin/env julia
 
-using Distributed
-@everywhere using TOML, Random, ProgressMeter
-@everywhere include("gridOperations.jl")
-
 # ----------------------
 # Main crossword runner
 # ----------------------
@@ -24,8 +20,8 @@ On failure:
 =#
 function generateCrossword(dataFile::String)
 
-    #=Loads crossword puzzle data from a JSON file.  =#
-    #=The JSON file is expected to contain:=#
+    #=Loads crossword puzzle data from a TOML file.  =#
+    #=The TOML file is expected to contain:=#
     #=  - "size": size of the crossword grid (NxN),=#
     #=  - "intersections": required minimum number of intersecting cells,=#
     #=  - "hints": dictionary mapping words to their hints.=#
@@ -39,9 +35,17 @@ function generateCrossword(dataFile::String)
     prettyOutput = nothing
     intersections = 0
 
-    @sync @showprogress @distributed for _ in 1:MAX_ITER
+    @sync @showprogress @distributed for i in 1:MAX_ITER
         # Randomize order for next attempt
-        sorted_words = shuffle(sorted_words)
+        shuffSeq = Int[]
+        for i in 1:length(sorted_words) 
+            num = 0 
+            while num == 0 || num ∈ shuffSeq 
+                num = 1 + (abs(rand(Int, 1)[1]) % length(sorted_words)) 
+            end 
+            push!(shuffSeq, num) 
+        end
+        sorted_words = sorted_words[shuffSeq]
 
         # Initialize empty grid and metadata
         grid = Dict((i,j) => '#' for i in 0:(gridSize - 1), j in 0:(gridSize - 1))
@@ -55,7 +59,7 @@ function generateCrossword(dataFile::String)
 
         # Check if valid
         if accept && count(v -> length(v) > 1, values(cell_direction)) ≥ reqIntersections
-            # Build JSON-style hints dict
+            # Build TOML-style hints dict
             blanks = []
             for i in 0:(gridSize - 1)
                 for j in 0:(gridSize - 1)
@@ -90,6 +94,7 @@ function generateCrossword(dataFile::String)
         @info "Crossword \n\n" * prettyOutput * "\n\nIntersections: $(intersections)"
     end
 end
+export generateCrossword
 
 if abspath(PROGRAM_FILE) == @__FILE__
     if isempty(ARGS)

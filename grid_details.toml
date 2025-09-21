@@ -12,5 +12,5 @@ ASTROCYTES = [14, "Star-shaped support cells in the brain that nourish neurons, 
 MICROGLIA = [40, "Brain’s resident immune cells that protect neurons but can drive chronic inflammation in disease."]
 HYPOXIA = [6, "Low oxygen zones inside tumors that trigger survival, angiogenesis, and therapy resistance."]
 MALARIA = [0, "Infectious, misfolded protein that causes healthy proteins to misfold, leading to fatal neurodegenerative diseases"]
-VIRULENCE = [72, "The degree of pathogenicity or ability of a microbe to cause disease."]
 PARKINSON = [79, "A neurodegenerative disorder marked by tremors and dopamine depletion."]
+VIRULENCE = [72, "The degree of pathogenicity or ability of a microbe to cause disease."]

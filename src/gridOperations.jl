@@ -1,5 +1,3 @@
-include("helpers.jl")
-
 # ----------------------
 # Utility functions
 # ----------------------
@@ -104,5 +102,3 @@ function createGrid(grid, words_list, gridSize, direction, cell_direction, class
     end
     return grid, cell_direction, false, classification, depth
 end
-
-
