@@ -68,7 +68,19 @@ Returns:
   (grid, cell_direction, accept::Bool, classification, depth)
 =#
 function createGrid(grid, words_list, gridSize, direction, cell_direction, classification,
-                    depth, connections, MAX_DEPTH)
+                    depth, connections, MAX_DEPTH, reqIntersections)
+
+    if depth == 0
+        if isfile("lockfile")
+            return nothing
+        end
+        # Initialize empty grid and metadata
+        grid = Dict((i,j) => '#' for i in 0:(gridSize - 1), j in 0:(gridSize - 1))
+        cell_direction = Dict((i,j) => "" for i in 0:(gridSize - 1), j in 0:(gridSize - 1))
+        connections = Dict((i,j) => [(i,j)] for i in 0:(gridSize - 1), j in 0:(gridSize - 1))
+        classification = Dict(0 => Tuple{Int,String}[], 1 => Tuple{Int,String}[])
+    end
+
     for word in words_list
         allowedHeads = all(v -> v == '#', values(grid)) ?
                         [(i,j) for i in 0:(gridSize - 1), j in 0:(gridSize - 1)] :
@@ -87,11 +99,14 @@ function createGrid(grid, words_list, gridSize, direction, cell_direction, class
                 if length(words_list) > 1
                     grid, cell_direction, accept, classification, depth =
                         createGrid(grid, filter(!=(word), words_list), gridSize, 1-direction,
-                                   cell_direction, classification, depth, connections, MAX_DEPTH)
+                                   cell_direction, classification, depth, connections, MAX_DEPTH, reqIntersections)
                 else
                     accept = true
                 end
                 if accept
+                    if count(v -> length(v) > 1, values(cell_direction)) ≥ reqIntersections
+                        touch("lockfile")
+                    end
                     push!(classification[direction], (gridSize * sequence[1][1] + sequence[1][2], word))
                     return grid, cell_direction, true, classification, depth
                 else
@@ -100,5 +115,6 @@ function createGrid(grid, words_list, gridSize, direction, cell_direction, class
             end
         end
     end
+
     return grid, cell_direction, false, classification, depth
 end

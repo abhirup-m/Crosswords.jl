@@ -1,6 +1,6 @@
 module Crosswords
 
-using Distributed, TOML, ProgressMeter
+using Distributed, TOML, ProgressMeter, Random
 
 include("helpers.jl")
 include("gridOperations.jl")

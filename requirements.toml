@@ -1,8 +1,12 @@
+##### mandatory parameters #####
 size = 14
-intersections = 13
-iterations = 1000
-depth = 10000
 
+##### optional parameters #####
+intersections = 12 # set to size - 3 if not provided
+iterations = 2000 # set to 1000 if not provided
+depth = 1000000 # set to 1000000 if not provided
+
+##### mandatory parameter #####
 [hints]
 MALARIA = "Infectious, misfolded protein that causes healthy proteins to misfold, leading to fatal neurodegenerative diseases"
 MICROGLIA = "Brain’s resident immune cells that protect neurons but can drive chronic inflammation in disease."

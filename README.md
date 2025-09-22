@@ -95,3 +95,15 @@ MALARIA = [91, "Infectious, misfolded protein that causes healthy proteins to mi
 VIRULENCE = [72, "The degree of pathogenicity or ability of a microbe to cause disease."]
 PARKINSON = [0, "A neurodegenerative disorder marked by tremors and dopamine depletion."]
 ```
+
+## Algorithm
+
+The project uses a mostly brute force backtracking search for the most optimal placement of words. Given a list of words `[W1, W2, ..., Wn]` and the requirement to fit these words in a `DxD` grid with at least `X` number of intersections, the following strategy is used:
+
+1. Choose a certain random sequence of the words (say `[W2, W9, W5, ..., W3]`).
+2. For the first word of the sequence, choose a _head_ (square on which to place the first letter of the word) and an _orientation_ (down or across). The _head_ and _orientation_ must be chosen so as to not conflict with the constraints of the grid - it must allow the rest of the letters of the word to be placed on the grid without extending beyond the boundaries.
+3. Place the rest of the letters in the word according to the _orientation_. For each square of the grid that is filled, note the orientation of the parent word of the letter in that square.
+4. Once the first word has been placed, rerun steps 2 and 3 with a new sequence that has the just-placed-word removed. This time and henceforth, the _head_ must be chosen with an additional constraint in mind: it should preferably be already occupied by the letter that we are trying to place (first letter of first word of the updated sequence) so as to increase the number of intersections, otherwise it has to be unoccupied. Both the _orientation_ and _head_ must also be chosen with the constraint that the resulting placement of letters either overlaps with occupied squares that have the same letter and opposite orientation as the one we are trying to place (that would then count as an intersection), or the square must be unoccupied.
+5. If such a _head_ and _orientation_ cannot be found for the updated sequence, we go back to the sequence immediately before this (one word longer), and find a new _head_ and _position_ for this older sequence. With the new configuration, we again truncate the sequence and try to obtain a constrain-satisfying _head_ and _position_ for the new 'first' word.
+6. Every time we obtain a _head_ and _orientation_ that satisfies all constraints, we truncate the sequence to the remaining words and repeat the process. And every time we fail to obtain such a _head_ and _orientation_, we go back to the sequence at the upper level and change the _head_ and _orientation_ there and then come back to the lower level with the hope that the modified configuration will now allow us to satisfy the constraints.
+7. We keep doing this until all words in the sequence have been placed. If it so happens that there is no configuration that allows placing all words with the required number of intersections, we shuffle the sequence of words and repeat the entire process with this new random sequence.
