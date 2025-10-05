@@ -1,169 +1,453 @@
+// file: crossword.go
 package main
 
 import (
 	"fmt"
-	// "slices"
+	"math/rand"
+	"strings"
+	"github.com/cheggaaa/pb/v3"
 )
 
-const MAXDEPTH = 1000000
-
-type Vertex struct {
-	letters string
-	// head position is calculated as 
-	// 0 1 2
-	// 3 4 5
-	// 6 7 8
-	// The formula comes out to be
-	// x + y * ncol, setting (0, 0)
-	// as top left corner
-	head [2]int
-	tail [2]int
-	// across: 0, down: 1
-	across bool
-	squares []int
+type Pos struct {
+	R, C int
 }
 
-func make2D(loc int, size int) [2]int {
-	return [2]int{loc / size, loc % size}
+type Placement struct {
+	Loc  int    // encoded start position: R*gridSize + C
+	Word string // placed word
 }
 
-func CheckBounds(squares []int, across bool, size int) bool {
-	end := len(squares) - 1
-	if squares[end] > size * size - 1 {
-		return false
+const (
+	HORIZONTAL = 0
+	VERTICAL   = 1
+)
+
+func main() {
+	// === user-editable inputs ===
+	gridSize := 14
+	reqIntersections := 12    // minimum required intersecting cells
+	MAX_ITER := 2000          // number of shuffles to try
+	MAX_DEPTH := 100000      // recursion placement limit (global)
+	words := []string{
+		"INTEGRINS", "ANGIOGENESIS", "ALLOSTASIS", "INFLAMMATION", "ASTROCYTES", "MICROGLIA",
+		"MICROGLIA", "HYPOXIA", "MALARIA", "VIRULENCE", "PARKINSON",
 	}
-	if across && squares[0] / size != squares[end] / size {
-		return false
-	}
-	return true
-}
+	// ============================
 
-func Squares(length int, head int, across bool, size int) []int {
-	squares := make([]int, length)
-	for i := 0; i < length; i++ {
-		if across {
-			squares[i] = head + i
-		} else {
-			squares[i] = head + i * size
-		}
-	}
-	return squares
-}
-
-func AreCompatible(v1 Vertex, v2 Vertex, size int) bool {
-	w1 := v1.letters
-	w2 := v2.letters
-
-	// if it's the same word, they must be incompatible,
-	// because we would have multiple heads or directions
-	// for the same word
-	if w1 == w2 {
-		return false
-	}
-
-	// checking for incompatibility arising from
-	// overlapping squares
-	for i1, square1 := range v1.squares {
-		for i2, square2 := range v2.squares {
-			if square1 == square2 {
-				 // if there's overlap, the letters have
-				 // to be the same
-				if v1.letters[i1] != v2.letters[i2] {
-					return false
-				}
-
-				 // if there's overlap, and the letters
-				 // are the same, the directions must be
-				 // orthogonal
-				if v1.across == v2.across {
-					return false
-				}
-			}
-			r1 := make2D(square1, size)
-			r2 := make2D(square2, size)
-			if (r1[0] - r2[0]) * (r1[0] - r2[0]) == 1 && r1[1] == r2[1] {
-				return false
-			}
-			if (r1[1] - r2[1]) * (r1[1] - r2[1]) == 1 && r1[0] == r2[0] {
-				return false
+	// sort words by length descending (like Julia code)
+	// simple bubble-ish sort for clarity
+	for i := 0; i < len(words); i++ {
+		for j := i + 1; j < len(words); j++ {
+			if len([]rune(words[j])) > len([]rune(words[i])) {
+				words[i], words[j] = words[j], words[i]
 			}
 		}
 	}
-	return true
-}
 
-func FindClique(vertices []Vertex, clique []Vertex, cliqueSize int, depth int, size int) ([]Vertex, []Vertex, int) {
-	if len(clique) == cliqueSize || depth > MAXDEPTH {
-		return vertices, clique, cliqueSize
-	}
-	var truncVertices []Vertex
-	for index, v := range vertices {
-		areCompatible := true
-		for _, vExisting := range clique {
-			if !AreCompatible(v, vExisting, size) {
-				areCompatible = false
-			}
-		}
-		if areCompatible {
-			clique = append(clique, v)
-			truncVertices = append(truncVertices, vertices[0:index]...)
-			truncVertices = append(truncVertices, vertices[index+1:]...)
+	var bestGrid map[Pos]rune
+	// var bestCellDir map[Pos]string
+	var bestClassification map[int][]Placement
+	bestIntersections := -1
+	bar := pb.StartNew(MAX_ITER)
+	for iter := 0; iter < MAX_ITER; iter++ {
+		// shuffle copy of words
+		shuffled := make([]string, len(words))
+		copy(shuffled, words)
+		rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+		// shuffled = []string{"ANGIOGENESIS", "ALLOSTASIS", "INFLAMMATION", "INTEGRINS", "MICROGLIA", "ASTROCYTES"}
+		// fmt.Println(shuffled)
+
+		// initialize containers for createGrid
+		grid := initGrid(gridSize)
+		cellDir := initCellDir(gridSize)
+		connections := initConnections(gridSize)
+		classification := map[int][]Placement{0: {}, 1: {}}
+		depth := 0
+
+		accept, intersections := createGrid(&grid, shuffled, gridSize, HORIZONTAL, &cellDir, &classification, &depth, &connections, MAX_DEPTH, reqIntersections)
+		if accept && intersections >= reqIntersections {
+			bestGrid = grid
+			// bestCellDir = cellDir
+			bestClassification = classification
+			bestIntersections = intersections
+			// we found one satisfying the requirement; stop early
 			break
 		}
+		// keep the one with max intersections so far
+		if intersections > bestIntersections {
+			bestGrid = grid
+			// bestCellDir = cellDir
+			bestClassification = classification
+			bestIntersections = intersections
+		}
+		bar.Increment()
 	}
-	return FindClique(truncVertices, clique, cliqueSize, depth + 1, size)
+	bar.Finish()
+
+	if bestGrid == nil {
+		fmt.Println("No valid crossword produced.")
+		return
+	}
+
+	// print grid
+	fmt.Println("Crossword:")
+	for r := 0; r < gridSize; r++ {
+		row := make([]string, gridSize)
+		for c := 0; c < gridSize; c++ {
+			ch := bestGrid[Pos{r, c}]
+			row[c] = string(ch)
+		}
+		fmt.Println(strings.Join(row, " "))
+	}
+	fmt.Printf("\nIntersections: %d\n", bestIntersections)
+
+	// print classification (down=0? We used 0=horizontal,1=vertical similar to Julia where classification[0] likely down)
+	fmt.Println("\nClassification:")
+	fmt.Println("Across:")
+	for _, p := range bestClassification[HORIZONTAL] {
+		fmt.Printf("  %d -> %s\n", p.Loc, p.Word)
+	}
+	fmt.Println("Down:")
+	for _, p := range bestClassification[VERTICAL] {
+		fmt.Printf("  %d -> %s\n", p.Loc, p.Word)
+	}
 }
 
-func Crossword(size int, words []string) []Vertex {
-	var vertices []Vertex
-	index := 0
-	for _, thisword := range words {
-		for thishead := 0; thishead < size * size; thishead++ {
-			for thisdir :=0; thisdir < 2; thisdir++ {
-				vertices = append(vertices, Vertex{letters: thisword, head: make2D(thishead, size), across: thisdir == 0})
-				vertices[index].squares = Squares(len(thisword), thishead, vertices[index].across, size)
-				vertices[index].tail = make2D(vertices[index].squares[len(thisword)-1], size)
-				if CheckBounds(vertices[index].squares, vertices[index].across, size) {
-					index += 1
-				} else {
-					if index > 0 {
-						vertices = vertices[:index]
-					} else {
-						vertices = []Vertex{}
+// --- initializers
+func initGrid(size int) map[Pos]rune {
+	grid := make(map[Pos]rune)
+	for r := 0; r < size; r++ {
+		for c := 0; c < size; c++ {
+			grid[Pos{r, c}] = '#'
+		}
+	}
+	return grid
+}
+
+func initCellDir(size int) map[Pos]string {
+	cd := make(map[Pos]string)
+	for r := 0; r < size; r++ {
+		for c := 0; c < size; c++ {
+			cd[Pos{r, c}] = ""
+		}
+	}
+	return cd
+}
+
+func initConnections(size int) map[Pos][]Pos {
+	conn := make(map[Pos][]Pos)
+	for r := 0; r < size; r++ {
+		for c := 0; c < size; c++ {
+			p := Pos{r, c}
+			conn[p] = []Pos{p}
+		}
+	}
+	return conn
+}
+
+// --- getSequence
+func getSequence(head Pos, direction int, word string) []Pos {
+	runes := []rune(word)
+	seq := make([]Pos, len(runes))
+	if direction == HORIZONTAL {
+		for i := range runes {
+			seq[i] = Pos{head.R + i, head.C}
+		}
+	} else {
+		for i := range runes {
+			seq[i] = Pos{head.R, head.C + i}
+		}
+	}
+	return seq
+}
+
+// --- isAcceptable
+func isAcceptable(word string, sequence []Pos, direction int, crossword map[Pos]rune, cellDirection map[Pos]string, gridSize int, connections map[Pos][]Pos) bool {
+	runes := []rune(word)
+	// 1. Boundary check
+	last := sequence[len(sequence)-1]
+	first := sequence[0]
+	if last.R >= gridSize || last.C >= gridSize || first.R < 0 || first.C < 0 {
+		return false
+	}
+
+	// 2. Adjacent check: ensure word doesn't touch other words from head/tail
+	for _, shift := range []int{0, -1} {
+		var adjacent Pos
+		if shift == 0 {
+			adjacent = sequence[0]
+		} else {
+			adjacent = sequence[len(sequence)-1]
+		}
+		// move two cells backwards/forwards along direction
+		if shift == 0 {
+			if direction == HORIZONTAL {
+				adjacent = Pos{adjacent.R - 1, adjacent.C}
+			} else {
+				adjacent = Pos{adjacent.R, adjacent.C - 1}
+			}
+		} else {
+			if direction == HORIZONTAL {
+				adjacent = Pos{adjacent.R + 1, adjacent.C}
+			} else {
+				adjacent = Pos{adjacent.R, adjacent.C + 1}
+			}
+		}
+		// check bounds and occupancy
+		if adjacent.R >= 0 && adjacent.R < gridSize && adjacent.C >= 0 && adjacent.C < gridSize {
+			if crossword[adjacent] != '#' {
+				return false
+			}
+		}
+	}
+
+	// 3. Per-character checks
+	for idx, loc := range sequence {
+		char := runes[idx]
+		// Ensure no illegal touching left/right (if vertical) or up/down (if horizontal)
+		for _, shift := range []int{-1, 1} {
+			var adjacent Pos
+			if direction == HORIZONTAL {
+				adjacent = Pos{loc.R, loc.C + shift}
+			} else {
+				adjacent = Pos{loc.R + shift, loc.C}
+			}
+			if adjacent.R >= 0 && adjacent.R < gridSize && adjacent.C >= 0 && adjacent.C < gridSize {
+				if crossword[adjacent] != '#' {
+					// if loc is not part of connections[adjacent], then illegal touching
+					if !posInSlice(loc, connections[adjacent]) {
+						return false
 					}
 				}
 			}
 		}
-	}
-	return vertices
-}
 
-func main() {
-	size := 11
-	words := []string{"APPLE", "BRICK", "CLOUD", "DREAM", "EAGLE", "FLAME", "GRASS", "HOUSE", "MUSIC", "RIVER"}
-	vertices := Crossword(size, words)
-	vertices, clique, _ := FindClique(vertices, []Vertex{}, len(words), 0, size)
-	if len(clique) < len(words) {
-		fmt.Println("Could not find a clique.")
-	}
-	var crossword [][]string
-	for i := 0; i < size; i++ {
-		crossword = append(crossword, make([]string, size))
-	}
-	for _,v := range clique {
-		for index,square := range v.squares {
-			r := make2D(square, size)
-			crossword[r[0]][r[1]] = string(v.letters[index])
-		}
-	}
-	for i := 0;  i < size; i++ {
-		for j := 0;  j < size; j++ {
-			if len(crossword[i][j]) == 0 {
-				fmt.Print("■")
-			} else {
-				fmt.Print(crossword[i][j])
+		// Ensure overlaps match existing letters and directions
+		if crossword[loc] != '#' {
+			if crossword[loc] != char {
+				return false
+			}
+			// cellDirection should be the opposite direction (like Julia check)
+			existing := cellDirection[loc]
+			expected := fmt.Sprintf("%d", 1-direction)
+			// if existing is not exactly expected (because Julia required equal string), reject
+			// In Julia they do: cell_direction[loc] != string(1 - direction)
+			// We'll enforce the same: existing must equal opposite direction when overlap happens.
+			if existing != expected {
+				return false
 			}
 		}
-		fmt.Println()
 	}
+	// deltas := []Pos{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
+	// for _, loc := range sequence {
+	// 	for _, d := range deltas {
+	// 		nb := Pos{loc.R + d.R, loc.C + d.C}
+	// 		if nb.R < 0 || nb.R >= gridSize || nb.C < 0 || nb.C >= gridSize {
+	// 			continue
+	// 		}
+	// 		if crossword[nb] != '#' {
+	// 			// neighbor occupied but not intersecting -> invalid
+	// 			if !posInSlice(nb, connections[loc]) {
+	// 				return false
+	// 			}
+	// 		}
+	// 	}
+	// }
+
+	return true
+}
+
+func posInSlice(p Pos, list []Pos) bool {
+	for _, q := range list {
+		if q == p {
+			return true
+		}
+	}
+	return false
+}
+
+// --- intersectingHead
+func intersectingHead(word string, direction int, cellDirection map[Pos]string, crossword map[Pos]rune, gridSize int) []Pos {
+	// If grid empty (all '#'), return (0,0)
+	allEmpty := true
+	for _, v := range crossword {
+		if v != '#' {
+			allEmpty = false
+			break
+		}
+	}
+	if allEmpty {
+		return []Pos{{0, 0}}
+	}
+
+	var allowed []Pos
+	runes := []rune(word)
+	for k, v := range crossword {
+		// Must intersect with a matching character
+		if !runeInRunes(v, runes) {
+			continue
+		}
+		// Skip if direction already occupied at that cell
+		if strings.Contains(cellDirection[k], fmt.Sprintf("%d", direction)) {
+			continue
+		}
+		// find first matching index in word (like Julia's findfirst)
+		matchIdx := indexOfRuneInRunes(v, runes)
+		if matchIdx == -1 {
+			continue
+		}
+		// matchIdx is 0-based; Julia used 1-based match so subtract accordingly
+		if direction == HORIZONTAL {
+			head := Pos{k.R - matchIdx, k.C}
+			allowed = append(allowed, head)
+		} else {
+			head := Pos{k.R, k.C - matchIdx}
+			allowed = append(allowed, head)
+		}
+	}
+	return allowed
+}
+
+func runeInRunes(r rune, arr []rune) bool {
+	for _, x := range arr {
+		if x == r {
+			return true
+		}
+	}
+	return false
+}
+func indexOfRuneInRunes(r rune, arr []rune) int {
+	for i, x := range arr {
+		if x == r {
+			return i
+		}
+	}
+	return -1
+}
+
+// --- addToGrid / removeFromGrid
+func addToGrid(word string, sequence []Pos, direction int, grid map[Pos]rune, cellDirection map[Pos]string, connections map[Pos][]Pos) {
+	runes := []rune(word)
+	for idx, loc := range sequence {
+		grid[loc] = runes[idx]
+		// append the direction char to the cellDirection string (mimic Julia string concat)
+		cellDirection[loc] = cellDirection[loc] + fmt.Sprintf("%d", direction)
+		// update connections
+		for _, loc2 := range sequence {
+			if loc2 != loc {
+				connections[loc] = append(connections[loc], loc2)
+			}
+		}
+	}
+}
+
+func removeFromGrid(word string, sequence []Pos, direction int, grid map[Pos]rune, cellDirection map[Pos]string, connections map[Pos][]Pos) {
+	// revert placement similar to Julia:
+	// pop connections for each loc (length(sequence)-1) times
+	for _, loc := range sequence {
+		// pop last (length(sequence)-1) entries
+		removeCount := len(sequence) - 1
+		if removeCount > len(connections[loc]) {
+			connections[loc] = []Pos{loc}
+		} else {
+			connections[loc] = connections[loc][:len(connections[loc])-removeCount]
+		}
+		if len(cellDirection[loc]) == 1 {
+			grid[loc] = '#'
+			cellDirection[loc] = ""
+		} else {
+			// drop last char
+			cellDirection[loc] = cellDirection[loc][:len(cellDirection[loc])-1]
+		}
+	}
+}
+
+// --- createGrid (recursive backtracking)
+func createGrid(grid *map[Pos]rune, wordsList []string, gridSize int, direction int, cellDirection *map[Pos]string,
+	classification *map[int][]Placement, depth *int, connections *map[Pos][]Pos, MAX_DEPTH int, reqIntersections int) (bool, int) {
+
+	// if depth == 0: initialization already done by caller in this Go version
+
+	// Helper to count intersections
+	countIntersections := func() int {
+		cnt := 0
+		for _, v := range *cellDirection {
+			if len(v) > 1 {
+				cnt++
+			}
+		}
+		return cnt
+	}
+
+	// iterate over words
+	for _, word := range wordsList {
+		// allowedHeads
+		var allowedHeads []Pos
+		if allGridEmpty(*grid) {
+			allowedHeads = []Pos{}
+			// produce all cells (Julia used all cells first time)
+			for r := 0; r < gridSize; r++ {
+				for c := 0; c < gridSize; c++ {
+					allowedHeads = append(allowedHeads, Pos{r, c})
+				}
+			}
+		} else {
+			allowedHeads = intersectingHead(word, direction, *cellDirection, *grid, gridSize)
+		}
+
+		for _, head := range allowedHeads {
+			*depth++
+			if *depth > MAX_DEPTH {
+				return false, countIntersections()
+			}
+
+			sequence := getSequence(head, direction, word)
+			if isAcceptable(word, sequence, direction, *grid, *cellDirection, gridSize, *connections) {
+				addToGrid(word, sequence, direction, *grid, *cellDirection, *connections)
+				accept := false
+				if len(wordsList) > 1 {
+					// create new words list without current word
+					newWords := filterOut(wordsList, word)
+					ok, _ := createGrid(grid, newWords, gridSize, 1-direction, cellDirection, classification, depth, connections, MAX_DEPTH, reqIntersections)
+					accept = ok
+				} else {
+					accept = true
+				}
+				if accept {
+					// if intersections enough, mimic touch("lockfile") by simply noting success
+					if countIntersections() >= reqIntersections {
+						// record classification
+					}
+					// push classification for this direction
+					start := sequence[0]
+					(*classification)[direction] = append((*classification)[direction], Placement{Loc: gridSize*start.R + start.C, Word: word})
+					return true, countIntersections()
+				} else {
+					removeFromGrid(word, sequence, direction, *grid, *cellDirection, *connections)
+				}
+			}
+		}
+	}
+
+	return false, countIntersections()
+}
+
+// --- helpers used in createGrid
+func allGridEmpty(grid map[Pos]rune) bool {
+	for _, v := range grid {
+		if v != '#' {
+			return false
+		}
+	}
+	return true
+}
+
+func filterOut(words []string, target string) []string {
+	out := make([]string, 0, len(words)-1)
+	for _, w := range words {
+		if w != target {
+			out = append(out, w)
+		}
+	}
+	return out
 }
